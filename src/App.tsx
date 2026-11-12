@@ -1,374 +1,174 @@
-import { useState } from "react";
-import type { Person, Item } from "./types";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker?url";
+import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { AboutPage } from "./components/AboutPage";
+import { AppHeader } from "./components/AppHeader";
+import { BillSummary } from "./components/BillSummary";
+import { ItemsSection } from "./components/ItemsSection";
+import { PeopleSection } from "./components/PeopleSection";
+import { SplitPage } from "./components/SplitPage";
+import { useActiveTabs } from "./hooks/useActiveTabs";
+import { useSavedPeople } from "./hooks/useSavedPeople";
+import { calculateTotals } from "./utils/bill";
+import { downloadBillPdf } from "./utils/billPdf";
+import type { Item } from "./types";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+type Page = "split" | "about";
 
 function App() {
-  const [people, setPeople] = useState<Person[]>([]);
-  const [name, setName] = useState("");
-
+  const { people, setPeople, savePeople, storageError } = useSavedPeople();
   const [items, setItems] = useState<Item[]>([]);
+  const [name, setName] = useState("");
   const [itemName, setItemName] = useState("");
   const [itemPrice, setItemPrice] = useState("");
+  const [activePage, setActivePage] = useState<Page>("split");
+  const [formError, setFormError] = useState("");
+  const [pdfError, setPdfError] = useState("");
+  const { onlineTabs, presenceUnavailable } = useActiveTabs();
 
-  // Add Person
-  const addPerson = () => {
-    if (!name.trim()) return;
-    setPeople([...people, { id: crypto.randomUUID(), name }]);
+  const totals = useMemo(() => calculateTotals(people, items), [people, items]);
+
+  const addPerson = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setFormError("Add a name to get started.");
+      return;
+    }
+    if (people.some((person) => person.name.toLowerCase() === cleanName.toLowerCase())) {
+      setFormError("That name is already in your split.");
+      return;
+    }
+
+    const updatedPeople = [...people, { id: crypto.randomUUID(), name: cleanName }];
+    setPeople(updatedPeople);
+    savePeople(updatedPeople);
     setName("");
+    setFormError("");
   };
 
-  // Add Item
-  const addItem = () => {
-    if (!itemName || !itemPrice) return;
-    setItems([
-      ...items,
+  const removePerson = (personId: string) => {
+    const updatedPeople = people.filter((person) => person.id !== personId);
+    setPeople(updatedPeople);
+    savePeople(updatedPeople);
+    setItems((current) =>
+      current.map((item) => ({
+        ...item,
+        sharedBy: item.sharedBy.filter((id) => id !== personId),
+      })),
+    );
+  };
+
+  const addItem = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const cleanName = itemName.trim();
+    const price = Number(itemPrice);
+    if (!cleanName || !itemPrice || !Number.isFinite(price) || price <= 0) {
+      setFormError("Enter an item name and a price greater than $0.");
+      return;
+    }
+
+    setItems((current) => [
+      ...current,
       {
         id: crypto.randomUUID(),
-        name: itemName,
+        name: cleanName,
         quantity: 1,
-        price: parseFloat(itemPrice),
+        price,
         taxPercent: 0,
         sharedBy: [],
       },
     ]);
     setItemName("");
     setItemPrice("");
-  };
-  const deleteItem = (id: string) => {
-    const confirmDelete = window.confirm("Delete this item?");
-    if (!confirmDelete) return;
-  
-    setItems((prev) => prev.filter((item) => item.id !== id));
+    setFormError("");
   };
 
-  // Calculate Split Totals
-  const calculateTotals = () => {
-    const totals: Record<string, number> = {};
-    people.forEach((p) => (totals[p.id] = 0));
-
-    items.forEach((item) => {
-      if (item.sharedBy.length === 0) return;
-
-      const base = item.price * item.quantity;
-      const finalPrice = base + (base * item.taxPercent) / 100;
-      const split = finalPrice / item.sharedBy.length;
-
-      item.sharedBy.forEach((pid) => {
-        totals[pid] += split;
-      });
-    });
-
-    return totals;
+  const updateItem = (itemId: string, update: Partial<Item>) => {
+    setItems((current) =>
+      current.map((item) => (item.id === itemId ? { ...item, ...update } : item)),
+    );
   };
 
-  const calculateGrandTotal = () => {
-    return items.reduce((total, item) => {
-      const base = item.price * item.quantity;
-      const finalPrice = base + (base * item.taxPercent) / 100;
-      return total + finalPrice;
-    }, 0);
+  const removeItem = (itemId: string) => {
+    setItems((current) => current.filter((item) => item.id !== itemId));
   };
 
-
-
-  const safeNum = (n: any, fallback = 0) =>
-    typeof n === "number" && !isNaN(n) ? n : fallback;
-
-  const calcItemBase = (item: Item) => {
-    const price = safeNum(item.price);
-    const qty = safeNum(item.quantity, 1);
-    return price * qty;
+  const handleDownloadPdf = () => {
+    try {
+      downloadBillPdf(people, items, totals);
+      setPdfError("");
+    } catch (error) {
+      console.error("Could not export bill as a PDF.", error);
+      setPdfError("The PDF could not be created. Please try again.");
+    }
   };
 
-  const calcItemTax = (item: Item) => {
-    const base = calcItemBase(item);
-    const tax = safeNum(item.taxPercent);
-    return (base * tax) / 100;
-  };
-
-  const calcItemTotal = (item: Item) => {
-    return calcItemBase(item) + calcItemTax(item);
-  };
-
-
-
-
-
+  const clearFormError = () => setFormError("");
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        <h1 style={styles.title}>🧾 Ease Split</h1>
-
-        {/* People Section */}
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Add People</h2>
-          <div style={styles.row}>
-            <input
-              style={styles.input}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter name"
-            />
-            <button style={styles.button} onClick={addPerson}>
-              Add
-            </button>
-          </div>
-          <div style={styles.chipContainer}>
-            {people.map((p) => (
-              <div key={p.id} style={styles.chip}>
-                {p.name}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Items Section */}
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Add Items</h2>
-          <div style={styles.row}>
-            <input
-              style={styles.input}
-              placeholder="Item name"
-              value={itemName}
-              onChange={(e) => setItemName(e.target.value)}
-            />
-            <input
-              style={styles.input}
-              placeholder="Price"
-              type="number"
-              value={itemPrice}
-              onChange={(e) => setItemPrice(e.target.value)}
-            />
-            <button style={styles.button} onClick={addItem}>
-              Add
-            </button>
-          </div>
-
-          {items.map((item) => (
-            <div key={item.id} style={styles.itemCard}>
-              <div style={styles.itemHeader}>
-                <div>
-                  <div style={{ fontWeight: 700 }}>{item.name}</div>
-                  <div style={{ fontSize: 12, color: "#333" }}>
-                    Base: ${calcItemBase(item).toFixed(2)}
-                  </div>
-                  <div style={{ fontSize: 12, color: "#333" }}>
-                    Tax ({item.taxPercent}%): ${calcItemTax(item).toFixed(2)}
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ fontWeight: 700 }}>
-                    ${calcItemTotal(item).toFixed(2)}
-                  </div>
-
-                  {/* X Delete Button */}
-                  <button
-                    onClick={() => deleteItem(item.id)}
-                    style={styles.deleteBtn}
-                  >
-                    ❌
-                  </button>
-                </div>
-              </div>
-
-              <div style={styles.row}>
-                <label>
-                  Tax:
-                  <select
-                    style={styles.select}
-                    value={item.taxPercent}
-                    onChange={(e) => {
-                      const tax = parseFloat(e.target.value);
-                      setItems(
-                        items.map((i) =>
-                          i.id === item.id ? { ...i, taxPercent: tax } : i
-                        )
-                      );
-                    }}
-                  >
-                    <option value={0}>No Tax</option>
-                    <option value={5}>5%</option>
-                    <option value={13}>13%</option>
-                    <option value={15}>15%</option>
-                    <option value={18}>18%</option>
-                  </select>
-                </label>
-
-                <label>
-                  Qty:
-                  <select
-                    style={styles.select}
-                    value={item.quantity}
-                    onChange={(e) => {
-                      const qty = parseInt(e.target.value);
-                      setItems(
-                        items.map((i) =>
-                          i.id === item.id ? { ...i, quantity: qty } : i
-                        )
-                      );
-                    }}
-                  >
-                    {[1, 2, 3, 4, 5].map(n => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <div style={{ marginLeft: 16 }}>
-                  Shared by:
-                  {people.map((p) => (
-                    <label key={p.id} style={{ marginLeft: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={item.sharedBy.includes(p.id)}
-                        onChange={() => {
-                          const updated = item.sharedBy.includes(p.id)
-                            ? item.sharedBy.filter((id) => id !== p.id)
-                            : [...item.sharedBy, p.id];
-
-                          setItems(
-                            items.map((i) =>
-                              i.id === item.id ? { ...i, sharedBy: updated } : i
-                            )
-                          );
-                        }}
-                      />
-                      {p.name}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-
-        {/* Summary */}
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Summary</h2>
-
-          {/* Grand Total */}
-          <div style={{ ...styles.summary, fontSize: 16, color: "#662222" }}>
-            Total: ${calculateGrandTotal().toFixed(2)}
-          </div>
-
-          {/* Per person */}
-          {Object.entries(calculateTotals()).map(([pid, amount]) => {
-            const person = people.find((p) => p.id === pid);
-            return (
-              <div key={pid} style={styles.summary}>
-                {person?.name}: ${amount.toFixed(2)}
-              </div>
-            );
-          })}
-        </div>
-
-      </div>
+    <div className="app-shell">
+      <AppHeader
+        activePage={activePage}
+        onlineTabs={onlineTabs}
+        presenceUnavailable={presenceUnavailable}
+        onNavigate={setActivePage}
+      />
+      <main className="main-content" id="home">
+        {activePage === "about" ? (
+          <AboutPage onStart={() => setActivePage("split")} />
+        ) : (
+          <SplitPage
+            formError={formError}
+            storageError={storageError}
+            peopleSection={
+              <PeopleSection
+                people={people}
+                name={name}
+                onNameChange={(value) => {
+                  setName(value);
+                  clearFormError();
+                }}
+                onSubmit={addPerson}
+                onRemove={removePerson}
+              />
+            }
+            itemsSection={
+              <ItemsSection
+                items={items}
+                people={people}
+                itemName={itemName}
+                itemPrice={itemPrice}
+                onItemNameChange={(value) => {
+                  setItemName(value);
+                  clearFormError();
+                }}
+                onItemPriceChange={(value) => {
+                  setItemPrice(value);
+                  clearFormError();
+                }}
+                onSubmit={addItem}
+                onUpdateItem={updateItem}
+                onRemoveItem={removeItem}
+              />
+            }
+            summary={
+              <BillSummary
+                people={people}
+                items={items}
+                totals={totals}
+                pdfError={pdfError}
+                onDownloadPdf={handleDownloadPdf}
+              />
+            }
+          />
+        )}
+      </main>
+      <footer className="footer">
+        <span>Made by Karan Patel</span>
+        <button onClick={() => setActivePage("about")}>How to use JustSplit</button>
+      </footer>
     </div>
   );
 }
-
-// ================== Styles ==================
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "flex-start",
-    backgroundColor: "#2F5755",
-    padding: 24,
-  },
-  container: {
-    width: "100%",
-    maxWidth: 800,
-  },
-  title: {
-    textAlign: "center",
-    color: "#E8E2D8",
-    marginBottom: 32,
-  },
-  section: {
-    backgroundColor: "#6F8F72",
-    borderRadius: 12,
-    padding: 24,
-    marginBottom: 24,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-  },
-  sectionTitle: {
-    marginBottom: 16,
-    color: "#111827",
-  },
-  row: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  input: {
-    padding: 12,
-    borderRadius: 8,
-    border: "1px solid #ccc",
-    flex: 1,
-    minWidth: 120,
-  },
-  select: {
-    marginLeft: 8,
-    padding: 8,
-    borderRadius: 8,
-    border: "1px solid #ccc",
-  },
-  button: {
-    padding: "10px 20px",
-    borderRadius: 8,
-    border: "none",
-    backgroundColor: "#2563eb",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-  chipContainer: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
-  },
-  chip: {
-    padding: "6px 12px",
-    backgroundColor: "#2F5755",
-    color: "#fff",
-    borderRadius: 20,
-    fontSize: 14,
-  },
-  itemCard: {
-    backgroundColor: "#BFC6C4",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    border: "1px solid #e5e7eb",
-  },
-  itemHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  summary: {
-    padding: 8,
-    fontWeight: "bold",
-    borderBottom: "1px solid #e5e7eb",
-    color: "#000",
-  },
-  deleteBtn: {
-    background: "transparent",
-    border: "none",
-    cursor: "pointer",
-    fontSize: 18,
-  },
-};
 
 export default App;
