@@ -1,18 +1,26 @@
+import { useEffect, useState } from "react";
+
 type Page = "split" | "about";
 
 type AppHeaderProps = {
   activePage: Page;
-  onlineTabs: number;
-  presenceUnavailable: boolean;
   onNavigate: (page: Page) => void;
 };
 
 export function AppHeader({
   activePage,
-  onlineTabs,
-  presenceUnavailable,
   onNavigate,
 }: AppHeaderProps) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const localTime = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const localDate = now.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+
   return (
     <header className="topbar">
       <a
@@ -41,18 +49,14 @@ export function AppHeader({
           How it works
         </button>
       </nav>
-      <div
-        className="presence-pill"
-        title={
-          presenceUnavailable
-            ? "Only this tab can be counted because local storage is unavailable."
-            : "Counts active JustSplit tabs in this browser on this device, not all site visitors."
-        }
-        aria-label={`JustSplit is open in ${onlineTabs} ${onlineTabs === 1 ? "tab" : "tabs"} on this device`}
+      <time
+        className="local-datetime"
+        dateTime={now.toISOString()}
+        aria-label={`Local time and date: ${localTime}, ${localDate}`}
       >
-        <span className="presence-dot" />
-        <span><strong>{onlineTabs}</strong> {onlineTabs === 1 ? "tab" : "tabs"} open here</span>
-      </div>
+        <span className="local-time">{localTime}</span>
+        <span className="local-date">{localDate}</span>
+      </time>
     </header>
   );
 }

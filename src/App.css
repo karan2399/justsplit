@@ -100,32 +100,25 @@
   transform: scaleX(1);
 }
 
-.presence-pill {
+.local-datetime {
   justify-self: end;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 13px;
-  border: 1px solid #e1e9df;
-  border-radius: 999px;
-  background: #f7faf5;
+  display: grid;
+  gap: 3px;
   color: #52665a;
-  font-size: 11px;
+  text-align: right;
+  text-decoration: none;
 }
 
-.presence-pill strong {
+.local-time {
   color: var(--green-dark);
+  font-size: 14px;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
-.presence-dot {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: #72a977;
-  box-shadow: 0 0 0 3px rgba(114, 169, 119, 0.15);
-  animation: pulse 2.2s ease-out infinite;
+.local-date {
+  color: #89958b;
+  font-size: 10px;
 }
 
 .main-content {
@@ -679,6 +672,142 @@
   font-size: 10px;
 }
 
+.receipt-import {
+  margin-bottom: 17px;
+}
+
+.receipt-import-action {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.receipt-import-action > span,
+.receipt-progress {
+  color: #89958b;
+  font-size: 10px;
+}
+
+.button-receipt {
+  min-height: 36px;
+  border: 1px solid #dfe8de;
+  background: #f3f7f1;
+  color: #476c50;
+}
+
+.button-receipt:hover {
+  background: #eaf2e8;
+}
+
+.button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
+
+.receipt-progress,
+.receipt-error {
+  margin: 9px 0 0;
+}
+
+.receipt-error {
+  color: #a64e3f;
+  font-size: 11px;
+}
+
+.receipt-review {
+  margin-top: 15px;
+  padding: 15px;
+  border: 1px solid #e6ebe2;
+  border-radius: 12px;
+  background: #fafbf8;
+}
+
+.receipt-review-heading,
+.receipt-review-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.receipt-review-heading h3 {
+  margin: 0 0 4px;
+  color: #33493c;
+  font-size: 12px;
+}
+
+.receipt-review-heading p {
+  margin: 0;
+  color: #89958b;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.receipt-cancel {
+  padding: 5px 7px;
+  border: 0;
+  background: transparent;
+  color: #7e8d80;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.receipt-line-list {
+  display: grid;
+  gap: 7px;
+  margin: 13px 0;
+}
+
+.receipt-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px 25px;
+  align-items: center;
+  gap: 7px;
+}
+
+.receipt-line input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #e5e9e2;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+}
+
+.receipt-price-input {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding-left: 9px;
+  border: 1px solid #e5e9e2;
+  border-radius: 8px;
+  background: #fff;
+  color: #96a099;
+  font-size: 11px;
+}
+
+.receipt-price-input input {
+  height: 34px;
+  padding-right: 5px;
+  padding-left: 3px;
+  border: 0;
+  box-shadow: none !important;
+}
+
+.receipt-review-footer {
+  padding-top: 12px;
+  border-top: 1px solid #e9ede6;
+  color: #758378;
+  font-size: 10px;
+  font-weight: 600;
+}
+
 .summary-card {
   position: sticky;
   top: 20px;
@@ -1056,12 +1185,6 @@
   clip-path: inset(50%);
 }
 
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(114, 169, 119, 0.3); }
-  70% { box-shadow: 0 0 0 5px rgba(114, 169, 119, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(114, 169, 119, 0); }
-}
-
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
@@ -1135,11 +1258,6 @@
     font-size: 11px;
   }
 
-  .presence-pill {
-    padding: 8px 10px;
-    font-size: 9px;
-  }
-
   .main-content {
     width: min(100% - 30px, 520px);
     padding: 30px 0 44px;
@@ -1210,16 +1328,6 @@
 }
 
 @media (max-width: 440px) {
-  .presence-pill {
-    gap: 6px;
-    padding: 7px 8px;
-  }
-
-  .presence-dot {
-    width: 7px;
-    height: 7px;
-  }
-
   .welcome-illustration {
     width: 76px;
     height: 76px;
@@ -1254,6 +1362,20 @@
 
   .item-form .button {
     grid-column: 1 / -1;
+  }
+
+  .receipt-review {
+    padding: 12px;
+  }
+
+  .receipt-line {
+    grid-template-columns: minmax(0, 1fr) 82px 22px;
+    gap: 5px;
+  }
+
+  .receipt-review-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .item-card {

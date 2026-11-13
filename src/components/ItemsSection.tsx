@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import type { Item, Person } from "../types";
+import { ReceiptImport } from "./ReceiptImport";
 import { formatCurrency } from "../utils/bill";
 
 type ItemsSectionProps = {
@@ -10,6 +11,7 @@ type ItemsSectionProps = {
   onItemNameChange: (value: string) => void;
   onItemPriceChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onImportItems: (items: Item[]) => void;
   onUpdateItem: (itemId: string, update: Partial<Item>) => void;
   onRemoveItem: (itemId: string) => void;
 };
@@ -22,6 +24,7 @@ export function ItemsSection({
   onItemNameChange,
   onItemPriceChange,
   onSubmit,
+  onImportItems,
   onUpdateItem,
   onRemoveItem,
 }: ItemsSectionProps) {
@@ -58,6 +61,8 @@ export function ItemsSection({
           <span aria-hidden="true">+</span> Add item
         </button>
       </form>
+
+      <ReceiptImport onImport={onImportItems} />
 
       {items.length > 0 ? (
         <div className="item-list">

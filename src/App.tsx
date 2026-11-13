@@ -6,7 +6,6 @@ import { BillSummary } from "./components/BillSummary";
 import { ItemsSection } from "./components/ItemsSection";
 import { PeopleSection } from "./components/PeopleSection";
 import { SplitPage } from "./components/SplitPage";
-import { useActiveTabs } from "./hooks/useActiveTabs";
 import { useSavedPeople } from "./hooks/useSavedPeople";
 import { calculateTotals } from "./utils/bill";
 import { downloadBillPdf } from "./utils/billPdf";
@@ -23,7 +22,6 @@ function App() {
   const [activePage, setActivePage] = useState<Page>("split");
   const [formError, setFormError] = useState("");
   const [pdfError, setPdfError] = useState("");
-  const { onlineTabs, presenceUnavailable } = useActiveTabs();
 
   const totals = useMemo(() => calculateTotals(people, items), [people, items]);
 
@@ -93,6 +91,11 @@ function App() {
     setItems((current) => current.filter((item) => item.id !== itemId));
   };
 
+  const importItems = (importedItems: Item[]) => {
+    setItems((current) => [...current, ...importedItems]);
+    setFormError("");
+  };
+
   const handleDownloadPdf = () => {
     try {
       downloadBillPdf(people, items, totals);
@@ -109,8 +112,6 @@ function App() {
     <div className="app-shell">
       <AppHeader
         activePage={activePage}
-        onlineTabs={onlineTabs}
-        presenceUnavailable={presenceUnavailable}
         onNavigate={setActivePage}
       />
       <main className="main-content" id="home">
@@ -147,6 +148,7 @@ function App() {
                   clearFormError();
                 }}
                 onSubmit={addItem}
+                onImportItems={importItems}
                 onUpdateItem={updateItem}
                 onRemoveItem={removeItem}
               />
